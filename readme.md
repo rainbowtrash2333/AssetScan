@@ -106,7 +106,7 @@
    - 使用 `adb install android/app/build/outputs/apk/release/app-release.apk` 进行真机安装。
    - 通过 Play Console 上传 `.aab`，并在发布前检查是否需要 ProGuard keep 规则以兼容 Capacitor 插件。
 
-## 8. 后续扩展建议
+## 8. TODO
 - 引入持久化存储（IndexedDB、SQLite 或后端 API），替换当前内存数据源。
 - 增加扫码历史、批量处理或离线模式，并结合 Capacitor Background Task。
 - 为 Excel 导入添加数据校验与错误行提示，提升易用性。
