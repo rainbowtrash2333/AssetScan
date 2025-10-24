@@ -12,9 +12,11 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^7.0.2",
     "@capacitor/android": "7.4.4",
     "@capacitor/app": "7.1.0",
     "@capacitor/core": "7.4.4",
+    "@capacitor/dialog": "^7.0.2",
     "@capacitor/filesystem": "7.1.0",
     "@capacitor/haptics": "7.0.2",
     "@capacitor/keyboard": "7.0.3",

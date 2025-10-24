@@ -4,7 +4,7 @@
 - 项目基于 Ionic Vue、Vue 3 与 TypeScript 构建，目标平台为 Android（通过 Capacitor 容器部署）。
 - 功能覆盖二维码扫描、serial number 设备检索、列表展示与编辑，以及 Excel(.xlsx) 文件的导入导出。
 - 前端 UI 使用 Ionic 组件库与 Ionicons 图标；应用通过 Vite 构建、支持热更新与现代构建优化。
-- 设备数据当前存储于内存（`src/services/deviceService.ts`），便于后续替换为远端 API 或本地持久化方案。
+- 设备数据通过 `@capacitor-community/sqlite` 持久化存储，若初始化失败会弹出提示并阻止后续读写，避免静默丢数据。
 
 ## 2. 技术栈与外部依赖
 
@@ -24,6 +24,7 @@
 ### 2.3 Capacitor 核心与插件
 - `@capacitor/core`, `@capacitor/android`, `@capacitor/cli`：Capacitor 容器及 Android 平台支持。
 - `@capacitor/app`、`@capacitor/haptics`、`@capacitor/keyboard`、`@capacitor/status-bar`、`@capacitor/filesystem`：常用系统能力封装，文件系统插件用于 Excel 输出到原生存储。
+- `@capacitor-community/sqlite`：提供原生 SQLite 读写能力，是设备数据的持久化后端；加载失败时会唤起系统对话框提示。
 - 二维码扫描使用 Web 原生 `navigator.mediaDevices.getUserMedia`，无额外条码插件依赖，仅需在 AndroidManifest 中声明摄像头权限。
 
 ### 2.4 其他第三方库
@@ -45,10 +46,9 @@
 - 若用户未授权权限或设备不支持摄像头，将在页面上展示友好的错误消息。
 
 ### 3.3 设备数据管理（`src/services/deviceService.ts`）
-- 使用 Vue `ref` 保存设备数组，提供 `computed` 导出便于响应式更新。
-- 公开 API：`listBySerial`（搜索）、`getById`、`save`（新增/更新）、`replaceAll`、`mergeBySerial`、`exportAll`。
-- `ensureId` 保证记录存在唯一 ID，优先使用 `crypto.randomUUID()`；所有写操作更新 `updatedAt` 字段。
-- 当前实现为内存存储，可视为 Repository 层，未来可对接后端或本地数据库（SQLite/IndexedDB）。
+- 初始化阶段连接 SQLite，自动创建 `devices` 表与索引并落地种子数据；若连接失败会弹出告警对话框并让调用方感知错误。
+- 服务对外暴露异步 API：`listBySerial`、`getById`、`save`、`replaceAll`、`mergeBySerial`、`exportAll` 与 `ready`，内部维护响应式缓存 `devicesRef` 供组件消费。
+- `save` 与 `mergeBySerial` 借助 `INSERT ... ON CONFLICT` 实现基于 `id` 或 `serialNumber` 的 UPSERT；所有写操作统一更新时间戳，便于导出比对。
 
 ### 3.4 设备列表页面（`src/views/DeviceListPage.vue`）
 - 读取路由查询参数中的 `serial` 作为初始筛选条件，支持实时搜索与下拉刷新。
@@ -69,15 +69,15 @@
 - 提供三项快捷入口（扫码、设备列表、导入导出），使用 `ion-card` 与图标增强引导。
 
 ## 4. 数据流与状态管理
-- 组件间共享通过 `deviceService` 的模块级 `ref` 实现，避免引入 Vuex/Pinia 等额外状态管理库。
-- 路由查询参数（serial number）作为跨页面通信手段，用于从扫码页面跳转并自动筛选列表。
-- Excel 导入后调用 `mergeBySerial`，保证 serial number 唯一性并刷新响应式视图。
+- 组件通过 `deviceService` 提供的响应式缓存及异步方法共享数据，无需额外状态管理库。
+- 所有跨页面筛选依旧使用路由查询参数（serial number），配合 SQLite 查询实现高效过滤。
+- Excel 导入后调用 `mergeBySerial`，批量 UPSERT 并刷新缓存，确保 serial number 唯一。
 
 ## 5. 平台与原生集成注意事项
-- 安装或升级 Capacitor 插件（如 Filesystem）后执行 `npx cap sync android` 同步原生项目；首次建议运行 `npx cap open android` 检查权限与 Gradle 配置。
+- 安装或升级 Capacitor 插件（Filesystem、SQLite 等）后执行 `npx cap sync android` 同步原生项目；首次建议运行 `npx cap open android` 检查权限与 Gradle 配置。
 - 扫码流程使用 Web 摄像头流，需在 `AndroidManifest.xml` 中声明 `android.permission.CAMERA`，并在运行时提示用户授权；若后续引入 ML Kit 等原生方案，再补充相应依赖。
+- SQLite 持久化依赖 `@capacitor-community/sqlite`，请确认原生工程已集成插件并授予必要权限；若初始化失败应用会以系统弹窗提示并中断数据操作。
 - Excel 导出目录位于 Android 的 Documents；若需与系统共享文件，可结合 Storage Access Framework 或媒体库权限。
-- 若希望持久化设备数据，建议在 Capacitor 层添加 `Preferences` 或 SQLite 插件，并在 `deviceService` 中封装持久化读写。
 
 ## 6. 构建、调试与测试命令
 - `npm install`：安装依赖。
@@ -107,7 +107,7 @@
    - 通过 Play Console 上传 `.aab`，并在发布前检查是否需要 ProGuard keep 规则以兼容 Capacitor 插件。
 
 ## 8. TODO
-- 引入持久化存储（IndexedDB、SQLite 或后端 API），替换当前内存数据源。
+- 评估在 Web 环境使用 `jeep-sqlite` 实现一致的数据库行为，或显式禁用浏览器端数据编辑。
 - 增加扫码历史、批量处理或离线模式，并结合 Capacitor Background Task。
 - 为 Excel 导入添加数据校验与错误行提示，提升易用性。
 - 编写覆盖核心场景的单元测试与 E2E 用例（扫码流程可通过 mock 服务在单测阶段验证）。

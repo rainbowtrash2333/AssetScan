@@ -1,4 +1,4 @@
-package io.ionic.starter;
+package com.twikura.assetscan;
 
 import com.getcapacitor.BridgeActivity;
 

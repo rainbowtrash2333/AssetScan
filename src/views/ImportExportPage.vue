@@ -87,7 +87,7 @@ const handleExport = async () => {
   exportMessage.value = '';
   errorMessage.value = '';
   try {
-    const fileName = await exportDevicesToExcel(exportAll());
+    const fileName = await exportDevicesToExcel(await exportAll());
     exportMessage.value = `Excel 文件已生成：${fileName}`;
   } catch (error) {
     const message =
@@ -112,7 +112,7 @@ const handleImport = async (event: Event) => {
   }
   try {
     const records = await importDevicesFromExcel(file);
-    mergeBySerial(records);
+    await mergeBySerial(records);
     importMessage.value = `成功导入 ${records.length} 条设备记录。`;
   } catch (error) {
     const message =

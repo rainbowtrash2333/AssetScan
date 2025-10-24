@@ -91,7 +91,7 @@ import {
   IonToast,
   IonToolbar
 } from '@ionic/vue';
-import { reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   DeviceRecord,
@@ -118,12 +118,12 @@ const form = reactive<Omit<DeviceRecord, 'id' | 'updatedAt'>>({
   notes: ''
 });
 
-const loadDevice = () => {
+const loadDevice = async () => {
   if (!deviceId) {
     notFound.value = true;
     return;
   }
-  const record = getById(deviceId);
+  const record = await getById(deviceId);
   if (!record) {
     notFound.value = true;
     return;
@@ -165,5 +165,7 @@ const handleSubmit = async () => {
   }
 };
 
-loadDevice();
+onMounted(() => {
+  void loadDevice();
+});
 </script>
