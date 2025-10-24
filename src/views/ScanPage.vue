@@ -9,14 +9,7 @@
     <ion-content fullscreen class="ion-padding">
       <section class="scanner-preview" :class="{ 'scanner-preview--active': isScanning }">
         <div class="scanner-frame">
-          <video
-            ref="videoRef"
-            class="scanner-video"
-            autoplay
-            playsinline
-            muted
-          ></video>
-          <ion-icon v-if="!isScanning" :icon="scanOutline" />
+          <ion-icon :icon="scanOutline" />
         </div>
         <p v-if="permissionGranted">
           对准二维码并保持稳定，系统会自动识别设备序列号。
@@ -76,18 +69,12 @@ import {
 } from '@/services/qrScannerService';
 
 const router = useRouter();
-const videoRef = ref<HTMLVideoElement | null>(null);
 const isScanning = ref(false);
 const permissionGranted = ref(false);
 const errorMessage = ref('');
 
 const handleScan = async () => {
   errorMessage.value = '';
-
-  if (!videoRef.value) {
-    errorMessage.value = '摄像头预览尚未就绪，请稍后重试。';
-    return;
-  }
 
   if (!permissionGranted.value) {
     try {
@@ -107,7 +94,7 @@ const handleScan = async () => {
 
   try {
     isScanning.value = true;
-    const serial = await startQrScan(videoRef.value);
+    const serial = await startQrScan();
     if (!serial) {
       errorMessage.value = '未捕获到二维码内容，请重新尝试。';
       return;
@@ -119,7 +106,6 @@ const handleScan = async () => {
     errorMessage.value = message;
   } finally {
     isScanning.value = false;
-    await stopScanner();
   }
 };
 
@@ -174,13 +160,6 @@ onBeforeUnmount(async () => {
   background: #000;
 }
 
-.scanner-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 .scanner-frame ion-icon {
   position: absolute;
   inset: 0;
@@ -189,5 +168,9 @@ onBeforeUnmount(async () => {
   font-size: 4rem;
   color: var(--ion-color-primary);
   background: rgba(0, 0, 0, 0.35);
+}
+
+:global(body.scanner-active) {
+  background: transparent !important;
 }
 </style>

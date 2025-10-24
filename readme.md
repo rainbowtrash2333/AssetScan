@@ -25,11 +25,10 @@
 - `@capacitor/core`, `@capacitor/android`, `@capacitor/cli`：Capacitor 容器及 Android 平台支持。
 - `@capacitor/app`、`@capacitor/haptics`、`@capacitor/keyboard`、`@capacitor/status-bar`、`@capacitor/filesystem`：常用系统能力封装，文件系统插件用于 Excel 输出到原生存储。
 - `@capacitor-community/sqlite`：提供原生 SQLite 读写能力，是设备数据的持久化后端；加载失败时会唤起系统对话框提示。
-- 二维码扫描使用 Web 原生 `navigator.mediaDevices.getUserMedia`，无额外条码插件依赖，仅需在 AndroidManifest 中声明摄像头权限。
+- `@capacitor/barcode-scanner`：官方 Capacitor 条码扫描插件，提供跨平台摄像头识别能力。
 
 ### 2.4 其他第三方库
 - `ionicons@^7`：图标资源。
-- `jsqr@^1.4`：纯前端二维码解析库，配合 `<video>` 预览实现扫码。
 - `xlsx@^0.18`：读写 Excel 文件，配合 Capacitor Filesystem 原生保存。
 
 ## 3. 功能模块实现原理
@@ -40,10 +39,9 @@
 - `src/router/index.ts` 定义主要导航路径：主页、扫码、设备列表、设备编辑、导入导出等。
 
 ### 3.2 二维码扫描（`src/views/ScanPage.vue`）
-- 页面挂载时调用 `ensureScannerPermission()` 基于 `navigator.mediaDevices.getUserMedia` 申请摄像头权限，并给出提示。
-- 点击“开始扫码”后，`startQrScan(video)` 打开后置摄像头，将流绑定到页面中的 `<video>` 元素，并使用 `jsQR` 每帧解析二维码内容。
-- 识别成功后跳转至设备列表并带上 serial number 查询参数；同时 `stopScanner()` 会停止动画帧、关闭媒体流、清空预览，避免摄像头占用。
-- 若用户未授权权限或设备不支持摄像头，将在页面上展示友好的错误消息。
+- 页面挂载时调用 `ensureScannerPermission()` 申请摄像头权限，并在受限时给出提示。
+- “开始扫码”按钮通过 `startQrScan()` 调用官方条码扫描插件，仅识别二维码格式，成功后带着序列号跳转至列表页面。
+- `stopScanner()` 用于结束扫码会话并恢复界面状态，确保相机资源及时释放。
 
 ### 3.3 设备数据管理（`src/services/deviceService.ts`）
 - 初始化阶段连接 SQLite，自动创建 `devices` 表与索引并落地种子数据；若连接失败会弹出告警对话框并让调用方感知错误。
@@ -75,7 +73,7 @@
 
 ## 5. 平台与原生集成注意事项
 - 安装或升级 Capacitor 插件（Filesystem、SQLite 等）后执行 `npx cap sync android` 同步原生项目；首次建议运行 `npx cap open android` 检查权限与 Gradle 配置。
-- 扫码流程使用 Web 摄像头流，需在 `AndroidManifest.xml` 中声明 `android.permission.CAMERA`，并在运行时提示用户授权；若后续引入 ML Kit 等原生方案，再补充相应依赖。
+- 扫码流程依赖官方条码扫描插件，需要在 `AndroidManifest.xml` 中声明 `android.permission.CAMERA`；如在 Android 上首次调用时需下载条码识别组件，请提前确保网络可用或预装对应依赖。
 - SQLite 持久化依赖 `@capacitor-community/sqlite`，请确认原生工程已集成插件并授予必要权限；若初始化失败应用会以系统弹窗提示并中断数据操作。
 - Excel 导出目录位于 Android 的 Documents；若需与系统共享文件，可结合 Storage Access Framework 或媒体库权限。
 

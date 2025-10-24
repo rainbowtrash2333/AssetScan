@@ -15,6 +15,7 @@
     "@capacitor-community/sqlite": "^7.0.2",
     "@capacitor/android": "7.4.4",
     "@capacitor/app": "7.1.0",
+    "@capacitor/barcode-scanner": "^2.2.0",
     "@capacitor/core": "7.4.4",
     "@capacitor/dialog": "^7.0.2",
     "@capacitor/filesystem": "7.1.0",
@@ -24,7 +25,6 @@
     "@ionic/vue": "^8.0.0",
     "@ionic/vue-router": "^8.0.0",
     "ionicons": "^7.0.0",
-    "jsqr": "^1.4.0",
     "vue": "^3.3.0",
     "vue-router": "^4.2.0",
     "xlsx": "^0.18.5"
