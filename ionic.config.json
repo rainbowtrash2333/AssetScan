@@ -1,0 +1,7 @@
+{
+  "name": "assetscan",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
