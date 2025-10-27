@@ -2,7 +2,7 @@
   <ion-page>
     <ion-header translucent>
       <ion-toolbar>
-        <ion-title>扫码二维码</ion-title>
+        <ion-title>{{ t('scan.title') }}</ion-title>
       </ion-toolbar>
     </ion-header>
 
@@ -11,12 +11,7 @@
         <div class="scanner-frame">
           <ion-icon :icon="scanOutline" />
         </div>
-        <p v-if="permissionGranted">
-          对准二维码并保持稳定，系统会自动识别设备序列号。
-        </p>
-        <p v-else>
-          需要摄像头权限才能扫码，请在系统设置中启用后重试。
-        </p>
+        <p>{{ instructions }}</p>
       </section>
 
       <ion-button
@@ -26,8 +21,7 @@
         :disabled="isScanning"
       >
         <ion-spinner v-if="isScanning" slot="start" />
-        <span v-if="isScanning">正在扫描...</span>
-        <span v-else>开始扫码</span>
+        <span>{{ startButtonLabel }}</span>
       </ion-button>
 
       <ion-button
@@ -37,7 +31,7 @@
         class="ion-margin-top"
         @click="navigateToDevices"
       >
-        查看设备列表
+        {{ t('scan.buttons.viewDevices') }}
       </ion-button>
 
       <ion-text color="danger" v-if="errorMessage" class="ion-margin-top">
@@ -60,34 +54,50 @@ import {
   IonToolbar
 } from '@ionic/vue';
 import { scanOutline } from 'ionicons/icons';
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   ensureScannerPermission,
   startQrScan,
   stopScanner
 } from '@/services/qrScannerService';
+import { useI18n } from '@/i18n';
 
 const router = useRouter();
+const { t } = useI18n();
+
 const isScanning = ref(false);
 const permissionGranted = ref(false);
-const errorMessage = ref('');
+const errorKey = ref<string | null>(null);
+const errorParams = ref<Record<string, string | number> | undefined>(undefined);
+
+const errorMessage = computed(() => (errorKey.value ? t(errorKey.value, errorParams.value) : ''));
+const instructions = computed(() =>
+  permissionGranted.value ? t('scan.instructions.granted') : t('scan.instructions.denied')
+);
+const startButtonLabel = computed(() =>
+  isScanning.value ? t('scan.buttons.scanning') : t('scan.buttons.start')
+);
+
+const setError = (key: string | null, params?: Record<string, string | number>) => {
+  errorKey.value = key;
+  errorParams.value = params;
+};
 
 const handleScan = async () => {
-  errorMessage.value = '';
+  setError(null);
 
   if (!permissionGranted.value) {
     try {
       permissionGranted.value = await ensureScannerPermission();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : '无法获取摄像头权限。';
-      errorMessage.value = message;
+      console.error('[ScanPage] Permission request failed', error);
+      setError('scan.errors.generic');
       return;
     }
 
     if (!permissionGranted.value) {
-      errorMessage.value = '请在系统设置中授予摄像头权限。';
+      setError('scan.errors.permission');
       return;
     }
   }
@@ -96,16 +106,20 @@ const handleScan = async () => {
     isScanning.value = true;
     const serial = await startQrScan();
     if (!serial) {
-      errorMessage.value = '未捕获到二维码内容，请重新尝试。';
+      setError('scan.errors.noContent');
       return;
     }
     router.replace({ name: 'Devices', query: { serial } });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : '扫码失败，请稍后再试。';
-    errorMessage.value = message;
+    const code = error instanceof Error ? error.message : '';
+    if (code === 'camera-permission-denied') {
+      setError('scan.errors.permission');
+    } else {
+      setError('scan.errors.generic');
+    }
   } finally {
     isScanning.value = false;
+    await stopScanner();
   }
 };
 
@@ -117,13 +131,12 @@ onMounted(async () => {
   try {
     permissionGranted.value = await ensureScannerPermission();
     if (!permissionGranted.value) {
-      errorMessage.value = '请授权摄像头权限以进行扫码操作。';
+      setError('scan.prompts.permissionReminder');
     }
   } catch (error) {
+    console.error('[ScanPage] Initialization failed', error);
     permissionGranted.value = false;
-    const message =
-      error instanceof Error ? error.message : '无法获取摄像头权限。';
-    errorMessage.value = message;
+    setError('scan.errors.generic');
   }
 });
 

@@ -29,7 +29,7 @@ const requestWebPermission = async () => {
     if (error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
       return false;
     }
-    throw error instanceof Error ? error : new Error('无法请求摄像头权限');
+    throw new Error('camera-permission-request-failed');
   }
 };
 
@@ -65,7 +65,7 @@ const setBodyScanningState = (active: boolean) => {
 export const startQrScan = async () => {
   const granted = await ensureScannerPermission();
   if (!granted) {
-    throw new Error('摄像头权限未授予');
+    throw new Error('camera-permission-denied');
   }
 
   setBodyScanningState(true);

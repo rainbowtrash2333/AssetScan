@@ -2,35 +2,38 @@
   <ion-page>
     <ion-header translucent>
       <ion-toolbar>
-        <ion-title>导入 / 导出</ion-title>
+        <ion-title>{{ t('importExport.title') }}</ion-title>
       </ion-toolbar>
     </ion-header>
 
     <ion-content fullscreen class="ion-padding">
       <ion-card>
         <ion-card-header>
-          <ion-card-title>导出设备信息</ion-card-title>
-          <ion-card-subtitle>将当前设备列表保存为 Excel 文件</ion-card-subtitle>
+          <ion-card-title>{{ t('importExport.exportCard.title') }}</ion-card-title>
+          <ion-card-subtitle>{{ t('importExport.exportCard.subtitle') }}</ion-card-subtitle>
         </ion-card-header>
         <ion-card-content>
           <ion-button expand="block" color="primary" @click="handleExport" :disabled="exporting">
             <ion-spinner v-if="exporting" slot="start" />
-            导出 Excel
+            {{ t('importExport.exportCard.button') }}
           </ion-button>
           <ion-text v-if="exportMessage" color="success" class="ion-margin-top">
             {{ exportMessage }}
+          </ion-text>
+          <ion-text v-if="errorMessage" color="danger" class="ion-margin-top">
+            {{ errorMessage }}
           </ion-text>
         </ion-card-content>
       </ion-card>
 
       <ion-card>
         <ion-card-header>
-          <ion-card-title>导入设备信息</ion-card-title>
-          <ion-card-subtitle>选择 Excel 文件并更新设备列表</ion-card-subtitle>
+          <ion-card-title>{{ t('importExport.importCard.title') }}</ion-card-title>
+          <ion-card-subtitle>{{ t('importExport.importCard.subtitle') }}</ion-card-subtitle>
         </ion-card-header>
         <ion-card-content>
           <ion-button expand="block" fill="outline" color="primary" @click="triggerFileSelect">
-            选择 Excel 文件
+            {{ t('importExport.importCard.button') }}
           </ion-button>
           <input
             ref="fileInputRef"
@@ -42,8 +45,8 @@
           <ion-text v-if="importMessage" color="success" class="ion-margin-top">
             {{ importMessage }}
           </ion-text>
-          <ion-text v-if="errorMessage" color="danger" class="ion-margin-top">
-            {{ errorMessage }}
+          <ion-text v-if="importErrorMessage" color="danger" class="ion-margin-top">
+            {{ importErrorMessage }}
           </ion-text>
         </ion-card-content>
       </ion-card>
@@ -67,32 +70,47 @@ import {
   IonTitle,
   IonToolbar
 } from '@ionic/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useDeviceStore } from '@/services/deviceService';
 import {
   exportDevicesToExcel,
   importDevicesFromExcel
 } from '@/services/excelService';
+import { useI18n } from '@/i18n';
 
 const { exportAll, mergeBySerial } = useDeviceStore();
+const { t } = useI18n();
 
 const exporting = ref(false);
-const exportMessage = ref('');
-const importMessage = ref('');
-const errorMessage = ref('');
+const exportMessageKey = ref<string | null>(null);
+const exportMessageParams = ref<Record<string, string | number> | undefined>(undefined);
+const exportMessage = computed(() =>
+  exportMessageKey.value ? t(exportMessageKey.value, exportMessageParams.value) : ''
+);
+const errorMessageKey = ref<string | null>(null);
+const errorMessage = computed(() => (errorMessageKey.value ? t(errorMessageKey.value) : ''));
+
+const importMessageKey = ref<string | null>(null);
+const importMessageParams = ref<Record<string, string | number> | undefined>(undefined);
+const importMessage = computed(() =>
+  importMessageKey.value ? t(importMessageKey.value, importMessageParams.value) : ''
+);
+const importErrorKey = ref<string | null>(null);
+const importErrorMessage = computed(() => (importErrorKey.value ? t(importErrorKey.value) : ''));
+
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 const handleExport = async () => {
   exporting.value = true;
-  exportMessage.value = '';
-  errorMessage.value = '';
+  exportMessageKey.value = null;
+  errorMessageKey.value = null;
   try {
     const fileName = await exportDevicesToExcel(await exportAll());
-    exportMessage.value = `Excel 文件已生成：${fileName}`;
+    exportMessageKey.value = 'importExport.exportCard.success';
+    exportMessageParams.value = { file: fileName };
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : '导出失败，请稍后再试。';
-    errorMessage.value = message;
+    console.error('[ImportExport] Export failed', error);
+    errorMessageKey.value = 'importExport.exportCard.error';
   } finally {
     exporting.value = false;
   }
@@ -103,8 +121,8 @@ const triggerFileSelect = () => {
 };
 
 const handleImport = async (event: Event) => {
-  importMessage.value = '';
-  errorMessage.value = '';
+  importMessageKey.value = null;
+  importErrorKey.value = null;
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) {
@@ -113,11 +131,11 @@ const handleImport = async (event: Event) => {
   try {
     const records = await importDevicesFromExcel(file);
     await mergeBySerial(records);
-    importMessage.value = `成功导入 ${records.length} 条设备记录。`;
+    importMessageKey.value = 'importExport.importCard.success';
+    importMessageParams.value = { count: records.length };
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : '导入失败，请稍后再试。';
-    errorMessage.value = message;
+    console.error('[ImportExport] Import failed', error);
+    importErrorKey.value = 'importExport.importCard.error';
   } finally {
     input.value = '';
   }

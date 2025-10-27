@@ -1,6 +1,7 @@
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite';
 import { Dialog } from '@capacitor/dialog';
 import { computed, ref } from 'vue';
+import { useI18n } from '@/i18n';
 
 export type DeviceStatus = 'active' | 'inactive' | 'maintenance' | 'retired';
 
@@ -60,6 +61,8 @@ let initializing: Promise<void> | null = null;
 let initError: Error | null = null;
 let initAlertPresented = false;
 
+const { t } = useI18n();
+
 const ensureId = (record: DeviceRecord): DeviceRecord => {
   if (record.id) {
     return record;
@@ -111,21 +114,18 @@ const presentInitError = async (error: unknown) => {
     return;
   }
   initAlertPresented = true;
-  const message =
-    error instanceof Error
-      ? `${error.message}`
-      : '无法初始化本地数据库，请检查插件是否已正确安装。';
+  const detail = error instanceof Error ? error.message : t('storage.unknownError');
 
   try {
     await Dialog.alert({
-      title: '存储初始化失败',
-      message: `无法连接 SQLite 数据库，设备数据不可用。\n\n${message}`
+      title: t('storage.initFailedTitle'),
+      message: t('storage.initFailedMessage', { detail })
     });
   } catch {
     if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-      window.alert(`无法连接 SQLite 数据库。\n${message}`);
+      window.alert(t('storage.alertFallback', { detail }));
     } else {
-      console.error('[deviceService] SQLite initialization failed:', message);
+      console.error('[deviceService] SQLite initialization failed:', detail);
     }
   }
 };
@@ -133,7 +133,7 @@ const presentInitError = async (error: unknown) => {
 const openSQLiteConnection = async () => {
   const plugin: any = CapacitorSQLite;
   if (!plugin) {
-    throw new Error('CapacitorSQLite 插件未找到，请确认原生工程已安装。');
+    throw new Error(t('storage.pluginMissing'));
   }
   sqlite = sqlite ?? new SQLiteConnection(plugin);
   const connection = await sqlite.createConnection(
@@ -144,7 +144,7 @@ const openSQLiteConnection = async () => {
     false
   );
   if (!connection) {
-    throw new Error('无法创建 SQLite 连接。');
+    throw new Error(t('storage.createConnectionFailed'));
   }
   await connection.open();
   await connection.execute(`
@@ -237,7 +237,7 @@ const ensureInitialized = async () => {
 
 const requireDatabase = () => {
   if (!database) {
-    throw initError ?? new Error('本地数据库未初始化或不可用。');
+    throw initError ?? new Error(t('storage.dbUnavailable'));
   }
   return database;
 };
@@ -353,7 +353,7 @@ export const useDeviceStore = () => {
   const save = async (payload: DeviceRecord) => {
     const ready = await safeEnsure();
     if (!ready) {
-      throw initError ?? new Error('本地数据库不可用，无法保存设备信息。');
+      throw initError ?? new Error(t('storage.saveUnavailable'));
     }
     const next = await insertOrUpdate(
       {
@@ -369,7 +369,7 @@ export const useDeviceStore = () => {
   const replaceAll = async (records: DeviceRecord[]) => {
     const ready = await safeEnsure();
     if (!ready) {
-      throw initError ?? new Error('本地数据库不可用，无法替换设备数据。');
+      throw initError ?? new Error(t('storage.replaceUnavailable'));
     }
     const conn = requireDatabase();
     await conn.execute('BEGIN IMMEDIATE;');
@@ -395,7 +395,7 @@ export const useDeviceStore = () => {
   const mergeBySerial = async (records: DeviceRecord[]) => {
     const ready = await safeEnsure();
     if (!ready) {
-      throw initError ?? new Error('本地数据库不可用，无法合并设备数据。');
+      throw initError ?? new Error(t('storage.mergeUnavailable'));
     }
     const conn = requireDatabase();
     await conn.execute('BEGIN IMMEDIATE;');
@@ -432,7 +432,7 @@ export const useDeviceStore = () => {
   const ready = async () => {
     const success = await safeEnsure();
     if (!success) {
-      throw initError ?? new Error('本地数据库未初始化。');
+      throw initError ?? new Error(t('storage.initUnavailable'));
     }
   };
 

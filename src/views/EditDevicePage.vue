@@ -5,39 +5,42 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/devices" />
         </ion-buttons>
-        <ion-title>编辑设备</ion-title>
+        <ion-title>{{ t('editDevice.title') }}</ion-title>
       </ion-toolbar>
     </ion-header>
 
     <ion-content fullscreen>
       <ion-list lines="full" v-if="!notFound">
         <ion-item>
-          <ion-label position="stacked">Serial Number</ion-label>
+          <ion-label position="stacked">{{ t('editDevice.fields.serialNumber') }}</ion-label>
           <ion-input :value="form.serialNumber" readonly />
         </ion-item>
         <ion-item>
-          <ion-label position="stacked">设备名称</ion-label>
+          <ion-label position="stacked">{{ t('editDevice.fields.name') }}</ion-label>
           <ion-input v-model="form.name" required />
         </ion-item>
         <ion-item>
-          <ion-label position="stacked">型号</ion-label>
+          <ion-label position="stacked">{{ t('editDevice.fields.model') }}</ion-label>
           <ion-input v-model="form.model" />
         </ion-item>
         <ion-item>
-          <ion-label position="stacked">状态</ion-label>
+          <ion-label position="stacked">{{ t('editDevice.fields.status') }}</ion-label>
           <ion-select v-model="form.status" interface="popover">
-            <ion-select-option value="active">在用</ion-select-option>
-            <ion-select-option value="maintenance">维护</ion-select-option>
-            <ion-select-option value="inactive">闲置</ion-select-option>
-            <ion-select-option value="retired">退役</ion-select-option>
+            <ion-select-option
+              v-for="option in statusOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </ion-select-option>
           </ion-select>
         </ion-item>
         <ion-item>
-          <ion-label position="stacked">位置</ion-label>
+          <ion-label position="stacked">{{ t('editDevice.fields.location') }}</ion-label>
           <ion-input v-model="form.location" />
         </ion-item>
         <ion-item>
-          <ion-label position="stacked">备注</ion-label>
+          <ion-label position="stacked">{{ t('editDevice.fields.notes') }}</ion-label>
           <ion-textarea v-model="form.notes" auto-grow />
         </ion-item>
       </ion-list>
@@ -45,7 +48,7 @@
       <ion-list v-else lines="none">
         <ion-item>
           <ion-label class="ion-text-center ion-padding-vertical">
-            未找到该设备记录。
+            {{ t('editDevice.notFound') }}
           </ion-label>
         </ion-item>
       </ion-list>
@@ -53,9 +56,14 @@
 
     <ion-footer v-if="!notFound">
       <ion-toolbar>
-        <ion-button expand="block" color="primary" @click="handleSubmit" :disabled="saving">
+        <ion-button
+          expand="block"
+          color="primary"
+          @click="handleSubmit"
+          :disabled="saving"
+        >
           <ion-spinner slot="start" v-if="saving" />
-          保存
+          {{ t('editDevice.save') }}
         </ion-button>
       </ion-toolbar>
     </ion-footer>
@@ -91,23 +99,34 @@ import {
   IonToast,
   IonToolbar
 } from '@ionic/vue';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   DeviceRecord,
   DeviceStatus,
   useDeviceStore
 } from '@/services/deviceService';
+import { useI18n } from '@/i18n';
 
 const route = useRoute();
 const router = useRouter();
 const { getById, save } = useDeviceStore();
+const { t } = useI18n();
+
+const statusOptions = computed(() => [
+  { value: 'active' as DeviceStatus, label: t('editDevice.statusOptions.active') },
+  { value: 'maintenance' as DeviceStatus, label: t('editDevice.statusOptions.maintenance') },
+  { value: 'inactive' as DeviceStatus, label: t('editDevice.statusOptions.inactive') },
+  { value: 'retired' as DeviceStatus, label: t('editDevice.statusOptions.retired') }
+]);
 
 const deviceId = route.params.id as string | undefined;
 const notFound = ref(false);
 const saving = ref(false);
 const toastOpen = ref(false);
-const toastMessage = ref('');
+const toastKey = ref<string | null>(null);
+
+const toastMessage = computed(() => (toastKey.value ? t(toastKey.value) : ''));
 
 const form = reactive<Omit<DeviceRecord, 'id' | 'updatedAt'>>({
   serialNumber: '',
@@ -128,6 +147,7 @@ const loadDevice = async () => {
     notFound.value = true;
     return;
   }
+  notFound.value = false;
   form.serialNumber = record.serialNumber;
   form.name = record.name;
   form.model = record.model;
@@ -152,7 +172,7 @@ const handleSubmit = async () => {
       notes: form.notes || undefined,
       updatedAt: new Date().toISOString()
     });
-    toastMessage.value = '设备信息已保存';
+    toastKey.value = 'editDevice.toast';
     toastOpen.value = true;
     setTimeout(() => {
       router.replace({
@@ -165,7 +185,5 @@ const handleSubmit = async () => {
   }
 };
 
-onMounted(() => {
-  void loadDevice();
-});
+void loadDevice();
 </script>

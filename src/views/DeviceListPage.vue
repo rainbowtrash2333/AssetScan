@@ -2,13 +2,13 @@
   <ion-page>
     <ion-header translucent>
       <ion-toolbar>
-        <ion-title>设备列表</ion-title>
+        <ion-title>{{ t('deviceList.title') }}</ion-title>
       </ion-toolbar>
     </ion-header>
 
     <ion-content fullscreen>
       <ion-searchbar
-        placeholder="输入或粘贴 serial number"
+        :placeholder="t('deviceList.searchPlaceholder')"
         :value="searchSerial"
         debounce="350"
         @ionInput="handleSearchInput"
@@ -21,7 +21,7 @@
 
       <div class="toolbar ion-padding-horizontal ion-padding-bottom">
         <ion-button size="small" color="primary" @click="loadDevices">
-          查询
+          {{ t('deviceList.searchButton') }}
         </ion-button>
         <ion-button
           size="small"
@@ -29,7 +29,7 @@
           color="medium"
           @click="navigateToImport"
         >
-          导入 / 导出
+          {{ t('deviceList.importButton') }}
         </ion-button>
       </div>
 
@@ -43,11 +43,15 @@
         >
           <ion-label>
             <h2>{{ device.name }}</h2>
-            <p>Serial: {{ device.serialNumber }}</p>
-            <p v-if="device.model">型号: {{ device.model }}</p>
-            <p v-if="device.location">位置: {{ device.location }}</p>
+            <p>{{ t('deviceList.serial', { serial: device.serialNumber }) }}</p>
+            <p v-if="device.model">
+              {{ t('deviceList.model', { model: device.model }) }}
+            </p>
+            <p v-if="device.location">
+              {{ t('deviceList.location', { location: device.location }) }}
+            </p>
             <p class="meta">
-              更新时间: {{ formatDate(device.updatedAt) }}
+              {{ t('deviceList.updatedAt', { time: formatDate(device.updatedAt) }) }}
             </p>
           </ion-label>
           <ion-badge slot="end" :color="badgeColor(device.status)">
@@ -59,14 +63,14 @@
       <ion-list v-else-if="!loading">
         <ion-item lines="none">
           <ion-label class="ion-text-center ion-padding-vertical">
-            当前条件下没有匹配的设备记录。
+            {{ t('deviceList.empty') }}
           </ion-label>
         </ion-item>
       </ion-list>
 
       <div v-if="loading" class="loading-state">
         <ion-spinner />
-        <p>正在加载设备信息...</p>
+        <p>{{ t('deviceList.loading') }}</p>
       </div>
     </ion-content>
   </ion-page>
@@ -89,23 +93,44 @@ import {
   IonTitle,
   IonToolbar
 } from '@ionic/vue';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   DeviceRecord,
   DeviceStatus,
   useDeviceStore
 } from '@/services/deviceService';
+import { useI18n } from '@/i18n';
 
 const route = useRoute();
 const router = useRouter();
 const { listBySerial } = useDeviceStore();
+const { t, locale } = useI18n();
 
-const searchSerial = ref<string>(
-  (route.query.serial as string | undefined) ?? ''
-);
+const searchSerial = ref<string>((route.query.serial as string | undefined) ?? '');
 const devices = ref<DeviceRecord[]>([]);
 const loading = ref(false);
+
+const formatDate = (value: string) => {
+  try {
+    const formatter = new Intl.DateTimeFormat(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+    return formatter.format(new Date(value));
+  } catch {
+    return new Date(value).toLocaleString();
+  }
+};
+
+const badgeColor = (status: DeviceStatus) => {
+  if (status === 'active') return 'success';
+  if (status === 'maintenance') return 'warning';
+  if (status === 'retired') return 'medium';
+  return 'tertiary';
+};
+
+const statusLabel = (status: DeviceStatus) => t(`deviceList.status.${status}`);
 
 const loadDevices = async () => {
   loading.value = true;
@@ -138,24 +163,6 @@ const resetSearch = () => {
 const handleRefresh = async (event: CustomEvent) => {
   await loadDevices();
   (event.target as HTMLIonRefresherElement).complete();
-};
-
-const badgeColor = (status: DeviceStatus) => {
-  if (status === 'active') return 'success';
-  if (status === 'maintenance') return 'warning';
-  if (status === 'retired') return 'medium';
-  return 'tertiary';
-};
-
-const statusLabel = (status: DeviceStatus) => {
-  if (status === 'active') return '在用';
-  if (status === 'maintenance') return '维护';
-  if (status === 'retired') return '退役';
-  return '闲置';
-};
-
-const formatDate = (value: string) => {
-  return new Date(value).toLocaleString();
 };
 
 watch(
