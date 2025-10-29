@@ -1,5 +1,6 @@
 # AssetScan User Guide
 Refer to [Technical Details Reference(only chinese)](./TechManual.md) for more information.
+
 [中文](./readme_zh.md) 
 
 ## Who Is This For
